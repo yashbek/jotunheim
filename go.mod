@@ -3,7 +3,7 @@ module github.com/yashbek/jotunheim
 go 1.22.6
 
 require (
-	github.com/yashbek/y2j v0.0.0-20240817190634-40de191da122
+	github.com/yashbek/y2j v0.0.0-20240817204149-aad21cdbbbe9
 	google.golang.org/grpc v1.65.0
 )
 

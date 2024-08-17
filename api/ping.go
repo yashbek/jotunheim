@@ -12,7 +12,7 @@ type MainServer struct{
 
 func (s MainServer) Ping (context.Context, *mainv1.PingRequest) (*mainv1.PingResponse, error) {
 	resp := &mainv1.PingResponse{
-		Html: "<html> <h1>I EXIST TOO!!</h1>",
+		Html: "<html> <h1>I EXIST TOO!!</h1> </html>",
 	}
 	
 	return resp, nil
