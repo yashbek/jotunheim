@@ -6,8 +6,7 @@ type defaultProfileKey struct {}
 
 type Profile struct {
 	ID string
-	Elo string
-	Anonymous bool
+	Elo int
 }
 
 func FromCtx(ctx context.Context) Profile {
@@ -26,7 +25,5 @@ func (p *Profile) ToCtx(ctx context.Context) context.Context {
 }
 
 func GetAnonymousProfile() Profile {
-	return Profile{
-		Anonymous: true,
-	}
+	return Profile{}
 }

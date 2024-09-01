@@ -1,8 +1,9 @@
 package services
 
+import "github.com/yashbek/jotunheim/utils"
+
 var queue map[int][]string
 
-const defaultEloInterval = 50
 
 func getQueue() map[int][]string {
 	return queue
@@ -18,5 +19,5 @@ func AddToMatchMakingQueue(userID string, elo int) {
 }
  
 func getKey(num int) int {
-	return num / defaultEloInterval
+	return num / utils.DefaultEloInterval
 }
