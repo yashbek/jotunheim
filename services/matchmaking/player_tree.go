@@ -1,6 +1,7 @@
 package matchmaking
 
 import (
+	"log"
 	"math"
 
 	"github.com/yashbek/jotunheim/models"
@@ -37,6 +38,10 @@ func AddRecord(profile models.Profile) {
 func recursiveTraverse(new, curr PlayerTreeRecord) {
 	diff := new.profile.Elo - curr.profile.Elo
 	if math.Abs(float64(diff)) <= utils.DefaultEloInterval {
+		err := startGame(new.profile.ID, curr.profile.ID)
+		if err != nil {
+			log.Default().Print("couldn't start game ")
+		}
 		// Pair players, remove record
 		// @TODO implement deletion
 		return 
@@ -104,8 +109,12 @@ func updateHeight(recordKey string) {
 	queue[recordKey] = copy
 }
 
-func updateRecord(recordKey string, record PlayerTreeRecord) {
+func setRecord(recordKey string, record PlayerTreeRecord) {
 	queue[recordKey] = record
+}
+
+func updateRecord(record PlayerTreeRecord) {
+	setRecord(record.profile.ID, record)
 }
 
 func counterClockWiseRotate(subTreeRootkey string) {
@@ -115,19 +124,18 @@ func counterClockWiseRotate(subTreeRootkey string) {
 
 	firstRight.leftKey = oldRoot.profile.ID
 	firstRight.parentKey = oldRoot.parentKey
-	updateRecord(firstRight.profile.ID, firstRight)
+	updateRecord(firstRight)
 
     oldRoot.rightKey = firstLeft.profile.ID
 	oldRoot.parentKey = firstRight.profile.ID
-	updateRecord(oldRoot.profile.ID, oldRoot)
+	updateRecord(oldRoot)
 
 	firstLeft.parentKey = oldRoot.profile.ID
-	updateRecord(firstLeft.profile.ID, firstLeft)
+	updateRecord(firstLeft)
 
 
     updateHeight(oldRoot.profile.ID)
 	updateHeight(firstRight.profile.ID)
-
 }
 
 func clockWiseRotate(subTreeRootkey string) {
@@ -137,17 +145,99 @@ func clockWiseRotate(subTreeRootkey string) {
 
 	firstLeft.rightKey = oldRoot.profile.ID
 	firstLeft.parentKey = oldRoot.parentKey
-	updateRecord(firstLeft.profile.ID, firstLeft)
+	updateRecord(firstLeft)
 
     oldRoot.leftKey = firstRight.profile.ID
 	oldRoot.parentKey = firstLeft.profile.ID
-	updateRecord(oldRoot.profile.ID, oldRoot)
+	updateRecord(oldRoot)
 
 	firstRight.parentKey = oldRoot.profile.ID
-	updateRecord(firstRight.profile.ID, firstRight)
+	updateRecord(firstRight)
 
 
     updateHeight(oldRoot.profile.ID)
 	updateHeight(firstRight.profile.ID)
+}
 
+func startGame(p1, p2 string) error {
+	for _, p := range []string{p1, p2} {
+		_, exists := queue[p]
+		if exists {
+			deleteRecord(p)
+		}
+	}
+
+	return nil
+}
+
+func deleteRecord(recordKey string) {
+	toBeRemoved := queue[recordKey]
+	var candidateKey string
+
+	switch getNumberOfChildren(recordKey) {
+	case 2:
+		rightMostRecordInLeftSubtree := getRightMostChild(toBeRemoved.leftKey)
+		// condition for an edge case
+		RightMostIsSubTreeRoot := rightMostRecordInLeftSubtree.profile.ID == toBeRemoved.leftKey
+		// to avoid an edge case where the right most element in the left subtree is the left subtree root itself
+		if RightMostIsSubTreeRoot {
+			rightMostRecordInLeftSubtree.parentKey = toBeRemoved.parentKey
+			rightMostRecordInLeftSubtree.rightKey = toBeRemoved.rightKey
+			candidateKey = rightMostRecordInLeftSubtree.profile.ID
+			updateRecord(rightMostRecordInLeftSubtree)
+			break
+		} 
+		parent := queue[rightMostRecordInLeftSubtree.parentKey]
+		parent.rightKey = ""
+
+		if rightMostRecordInLeftSubtree.leftKey != "" {
+			left := queue[rightMostRecordInLeftSubtree.leftKey]			
+			left.parentKey = parent.profile.ID
+			parent.rightKey = left.profile.ID
+			updateRecord(left)
+		}
+		updateRecord(parent)
+
+		rightMostRecordInLeftSubtree.rightKey = toBeRemoved.rightKey
+		rightMostRecordInLeftSubtree.parentKey = toBeRemoved.parentKey
+		rightMostRecordInLeftSubtree.leftKey = toBeRemoved.leftKey
+		candidateKey = rightMostRecordInLeftSubtree.profile.ID
+		updateRecord(rightMostRecordInLeftSubtree)
+	case 1:
+		if toBeRemoved.leftKey != "" {
+			candidateKey = toBeRemoved.leftKey
+		} else {
+			candidateKey = toBeRemoved.rightKey
+		}
+	case 0:
+		candidateKey = ""
+	} 
+
+	parent, exists := queue[toBeRemoved.parentKey]
+	if exists {
+		if toBeRemoved.profile.Elo > parent.profile.Elo {
+			parent.rightKey = candidateKey
+		} else {
+			parent.leftKey = candidateKey
+		}
+		updateRecord(parent)
+	}
+	
+	delete(queue, toBeRemoved.profile.ID)
+}
+
+func getRightMostChild(key string) PlayerTreeRecord {
+	curr := queue[key]
+	if curr.rightKey != "" {
+		return getRightMostChild(curr.rightKey)
+	}
+	return curr
+}
+
+func getNumberOfChildren(key string) int {
+	record := queue[key]
+	count := 0
+	if record.leftKey != "" {count++}
+	if record.rightKey != "" {count++}
+	return count
 }
