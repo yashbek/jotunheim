@@ -45,6 +45,7 @@ func recursiveTraverse(new, curr PlayerTreeRecord) {
 		}
 		// Pair players, remove record
 		// @TODO implement deletion
+		rebalanceTree(rootKey)
 		return
 	}
 
@@ -132,9 +133,6 @@ func counterClockWiseRotate(subTreeRootkey string) {
 	firstRight.parentKey = oldRoot.parentKey
 	updateRecord(firstRight)
 
-	oldRoot.rightKey = firstLeft.profile.ID
-	oldRoot.parentKey = firstRight.profile.ID
-	updateRecord(oldRoot)
 
 	if oldRoot.parentKey != "" {
 		if oldRoot.profile.Elo > oldRootParent.profile.Elo {
@@ -143,7 +141,14 @@ func counterClockWiseRotate(subTreeRootkey string) {
 			oldRootParent.leftKey = firstRight.profile.ID
 		}
 		updateRecord(oldRootParent)
+	} else {
+		rootKey = firstRight.profile.ID
 	}
+		
+	oldRoot.rightKey = firstLeft.profile.ID
+	oldRoot.parentKey = firstRight.profile.ID
+	updateRecord(oldRoot)
+
 
 	if firstLeft.rightKey != "" {
 		firstLeft.parentKey = oldRoot.profile.ID
@@ -164,10 +169,6 @@ func clockWiseRotate(subTreeRootkey string) {
 	firstLeft.parentKey = oldRoot.parentKey
 	updateRecord(firstLeft)
 
-	oldRoot.leftKey = firstRight.profile.ID
-	oldRoot.parentKey = firstLeft.profile.ID
-	updateRecord(oldRoot)
-
 	if oldRoot.parentKey != "" {
 		if oldRoot.profile.Elo > oldRootParent.profile.Elo {
 			oldRootParent.rightKey = firstLeft.profile.ID
@@ -175,7 +176,13 @@ func clockWiseRotate(subTreeRootkey string) {
 			oldRootParent.leftKey = firstLeft.profile.ID
 		}
 		updateRecord(oldRootParent)
+	} else {
+		rootKey = firstRight.profile.ID
 	}
+
+	oldRoot.leftKey = firstRight.profile.ID
+	oldRoot.parentKey = firstLeft.profile.ID
+	updateRecord(oldRoot)
 
 	if firstLeft.rightKey != "" {
 		firstRight.parentKey = oldRoot.profile.ID
@@ -241,15 +248,9 @@ func deleteRecord(recordKey string) {
 		candidateKey = ""
 	}
 
-	parent, exists := queue[toBeRemoved.parentKey]
-	if exists {
-		if toBeRemoved.profile.Elo > parent.profile.Elo {
-			parent.rightKey = candidateKey
-		} else {
-			parent.leftKey = candidateKey
-		}
-		updateRecord(parent)
-	}
+	swapParent(recordKey, candidateKey)
+	swapLeftChild(recordKey, candidateKey)
+	swapRightChild(recordKey, candidateKey)
 
 	delete(queue, toBeRemoved.profile.ID)
 }
@@ -295,3 +296,72 @@ func sprintInOrder(key string, result *string) {
 	}
 }
 
+func swapParent(old, new string) {
+	oldRecord := queue[old]
+	parent, exists := queue[oldRecord.parentKey]
+	if exists {
+		if oldRecord.profile.Elo > parent.profile.Elo {
+			parent.rightKey = new
+		} else {
+			parent.leftKey = new
+		}
+		updateRecord(parent)
+	} else {
+		rootKey = new
+	}
+}
+
+func swapLeftChild(old, new string) {
+	oldRecord := queue[old]
+	left, exists := queue[oldRecord.leftKey]
+	if exists && oldRecord.leftKey != new {
+		left.parentKey = new
+		updateRecord(left)
+	} 
+}
+
+func swapRightChild(old, new string) {
+	oldRecord := queue[old]
+	right, exists := queue[oldRecord.rightKey]
+	if exists {
+		right.parentKey = new
+		updateRecord(right)
+	}
+}
+
+func rebalanceTree(key string) {
+	record := queue[key]
+	if left := record.leftKey; left != "" {
+		rebalanceTree(left)
+	}
+	if right := record.rightKey; right != "" {
+		rebalanceTree(right)
+	}
+
+	balance := queue[record.rightKey].height - queue[record.leftKey].height
+
+	if math.Abs(float64(balance)) < 2 {
+		return
+	}
+
+	if balance > 0 {
+		if queue[record.rightKey].rightKey != "" {
+			// right right
+			counterClockWiseRotate(record.profile.ID)
+		} else {
+			// right left
+			clockWiseRotate(queue[record.rightKey].profile.ID)
+			counterClockWiseRotate(record.profile.ID)
+		}
+	} else {
+		if queue[record.leftKey].rightKey != "" {
+			// left right
+			counterClockWiseRotate(queue[record.leftKey].profile.ID)
+			clockWiseRotate(record.profile.ID)
+		} else {
+			// left left
+			clockWiseRotate(record.profile.ID)
+		}
+	}
+	
+}
