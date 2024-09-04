@@ -1,6 +1,7 @@
 package matchmaking
 
 import (
+	"fmt"
 	"log"
 	"math"
 
@@ -9,11 +10,11 @@ import (
 )
 
 type PlayerTreeRecord struct {
-	profile     models.Profile
+	profile   models.Profile
 	rightKey  string
 	leftKey   string
 	parentKey string
-	height      int
+	height    int
 }
 
 var queue map[string]PlayerTreeRecord
@@ -44,22 +45,26 @@ func recursiveTraverse(new, curr PlayerTreeRecord) {
 		}
 		// Pair players, remove record
 		// @TODO implement deletion
-		return 
+		return
 	}
 
 	if diff > 0 {
-		if curr.rightKey != "" {
+		if curr.rightKey == "" {
 			new.parentKey = curr.profile.ID
 			curr.rightKey = new.profile.ID
+			updateRecord(curr)
+			queue[new.profile.ID] = new
 		} else {
 			recursiveTraverse(new, queue[curr.rightKey])
 		}
 	} else {
-		if curr.leftKey != "" {
+		if curr.leftKey == "" {
 			new.parentKey = curr.profile.ID
 			curr.leftKey = new.profile.ID
+			updateRecord(curr)
+			queue[new.profile.ID] = new
 		} else {
-			recursiveTraverse(new, queue[curr.rightKey])
+			recursiveTraverse(new, queue[curr.leftKey])
 		}
 	}
 
@@ -73,7 +78,7 @@ func recursiveTraverse(new, curr PlayerTreeRecord) {
 
 	if balance > 0 {
 		if new.profile.Elo > queue[curr.rightKey].profile.Elo {
-			// right right 
+			// right right
 			counterClockWiseRotate(curr.profile.ID)
 		} else {
 			// right left
@@ -81,12 +86,12 @@ func recursiveTraverse(new, curr PlayerTreeRecord) {
 			counterClockWiseRotate(curr.profile.ID)
 		}
 	} else {
-		if new.profile.Elo > queue[curr.rightKey].profile.Elo {
+		if new.profile.Elo > queue[curr.leftKey].profile.Elo {
 			// left right
 			counterClockWiseRotate(queue[curr.leftKey].profile.ID)
 			clockWiseRotate(curr.profile.ID)
 		} else {
-			// left left 
+			// left left
 			clockWiseRotate(curr.profile.ID)
 		}
 	}
@@ -95,17 +100,17 @@ func recursiveTraverse(new, curr PlayerTreeRecord) {
 
 func wrapProfile(profile models.Profile) PlayerTreeRecord {
 	return PlayerTreeRecord{
-		profile:     profile,
+		profile:   profile,
 		rightKey:  "",
 		leftKey:   "",
 		parentKey: "",
-		height:      1,
+		height:    1,
 	}
 }
 
 func updateHeight(recordKey string) {
 	copy := queue[recordKey]
-	copy.height =  1 + utils.Max(queue[copy.rightKey].height, queue[copy.leftKey].height)
+	copy.height = 1 + utils.Max(queue[copy.rightKey].height, queue[copy.leftKey].height)
 	queue[recordKey] = copy
 }
 
@@ -119,6 +124,7 @@ func updateRecord(record PlayerTreeRecord) {
 
 func counterClockWiseRotate(subTreeRootkey string) {
 	oldRoot := queue[subTreeRootkey]
+	oldRootParent := queue[oldRoot.parentKey]
 	firstRight := queue[oldRoot.rightKey]
 	firstLeft := queue[firstRight.leftKey]
 
@@ -126,20 +132,31 @@ func counterClockWiseRotate(subTreeRootkey string) {
 	firstRight.parentKey = oldRoot.parentKey
 	updateRecord(firstRight)
 
-    oldRoot.rightKey = firstLeft.profile.ID
+	oldRoot.rightKey = firstLeft.profile.ID
 	oldRoot.parentKey = firstRight.profile.ID
 	updateRecord(oldRoot)
 
-	firstLeft.parentKey = oldRoot.profile.ID
-	updateRecord(firstLeft)
+	if oldRoot.parentKey != "" {
+		if oldRoot.profile.Elo > oldRootParent.profile.Elo {
+			oldRootParent.rightKey = firstRight.profile.ID
+		} else {
+			oldRootParent.leftKey = firstRight.profile.ID
+		}
+		updateRecord(oldRootParent)
+	}
 
-
-    updateHeight(oldRoot.profile.ID)
+	if firstLeft.rightKey != "" {
+		firstLeft.parentKey = oldRoot.profile.ID
+		updateRecord(firstLeft)
+	}
+	
+	updateHeight(oldRoot.profile.ID)
 	updateHeight(firstRight.profile.ID)
 }
 
 func clockWiseRotate(subTreeRootkey string) {
 	oldRoot := queue[subTreeRootkey]
+	oldRootParent := queue[oldRoot.parentKey]
 	firstLeft := queue[oldRoot.leftKey]
 	firstRight := queue[firstLeft.rightKey]
 
@@ -147,15 +164,26 @@ func clockWiseRotate(subTreeRootkey string) {
 	firstLeft.parentKey = oldRoot.parentKey
 	updateRecord(firstLeft)
 
-    oldRoot.leftKey = firstRight.profile.ID
+	oldRoot.leftKey = firstRight.profile.ID
 	oldRoot.parentKey = firstLeft.profile.ID
 	updateRecord(oldRoot)
 
-	firstRight.parentKey = oldRoot.profile.ID
-	updateRecord(firstRight)
+	if oldRoot.parentKey != "" {
+		if oldRoot.profile.Elo > oldRootParent.profile.Elo {
+			oldRootParent.rightKey = firstLeft.profile.ID
+		} else {
+			oldRootParent.leftKey = firstLeft.profile.ID
+		}
+		updateRecord(oldRootParent)
+	}
 
+	if firstLeft.rightKey != "" {
+		firstRight.parentKey = oldRoot.profile.ID
+		updateRecord(firstRight)
+	}
+	
 
-    updateHeight(oldRoot.profile.ID)
+	updateHeight(oldRoot.profile.ID)
 	updateHeight(firstRight.profile.ID)
 }
 
@@ -186,12 +214,12 @@ func deleteRecord(recordKey string) {
 			candidateKey = rightMostRecordInLeftSubtree.profile.ID
 			updateRecord(rightMostRecordInLeftSubtree)
 			break
-		} 
+		}
 		parent := queue[rightMostRecordInLeftSubtree.parentKey]
 		parent.rightKey = ""
 
 		if rightMostRecordInLeftSubtree.leftKey != "" {
-			left := queue[rightMostRecordInLeftSubtree.leftKey]			
+			left := queue[rightMostRecordInLeftSubtree.leftKey]
 			left.parentKey = parent.profile.ID
 			parent.rightKey = left.profile.ID
 			updateRecord(left)
@@ -211,7 +239,7 @@ func deleteRecord(recordKey string) {
 		}
 	case 0:
 		candidateKey = ""
-	} 
+	}
 
 	parent, exists := queue[toBeRemoved.parentKey]
 	if exists {
@@ -222,7 +250,7 @@ func deleteRecord(recordKey string) {
 		}
 		updateRecord(parent)
 	}
-	
+
 	delete(queue, toBeRemoved.profile.ID)
 }
 
@@ -237,7 +265,33 @@ func getRightMostChild(key string) PlayerTreeRecord {
 func getNumberOfChildren(key string) int {
 	record := queue[key]
 	count := 0
-	if record.leftKey != "" {count++}
-	if record.rightKey != "" {count++}
+	if record.leftKey != "" {
+		count++
+	}
+	if record.rightKey != "" {
+		count++
+	}
 	return count
 }
+
+func SprintInOrder(key string) string {
+	result := ""
+	sprintInOrder(key, &result)
+	return result
+}
+
+func sprintInOrder(key string, result *string) {
+	if left := queue[key].leftKey; left != "" {
+		sprintInOrder(left, result)
+	}
+	if *result == "" {
+		*result = key
+	} else {
+		*result = fmt.Sprintf("%s, %s", *result, key)
+	}
+	
+	if right := queue[key].rightKey; right != "" {
+		sprintInOrder(right, result)
+	}
+}
+
