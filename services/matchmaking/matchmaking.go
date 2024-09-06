@@ -13,7 +13,7 @@ func Initalize() MatchmakingPool {
 	return make([]models.Profile, 0)
 }
 
-func (pool *MatchmakingPool) newPlayer(p models.Profile) {
+func (pool *MatchmakingPool) NewPlayer(p models.Profile) {
 	n := len((*pool))
 	i, _ := slices.BinarySearchFunc((*pool), p, func(a, b models.Profile) int {
 		return a.Elo - b.Elo

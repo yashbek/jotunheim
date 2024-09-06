@@ -41,7 +41,7 @@ func TestAdd(t *testing.T) {
 	}
 
 	for _, player := range newPlayers {
-		mmQueue.newPlayer(player)
+		mmQueue.NewPlayer(player)
 	}
 
 	if !slices.IsSortedFunc(mmQueue, func(a, b models.Profile) int {
