@@ -9,38 +9,33 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/yashbek/jotunheim/api"
+	"github.com/yashbek/jotunheim/services/matchmaking"
 	mainv1 "github.com/yashbek/y2j/api/main/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 )
 
-// func main() {
-// 	port := 8081
-// 	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
-// 	if err != nil {
-// 		log.Fatalf("failed to listen: %v", err)
-// 	}
-
-// 	var opts []grpc.ServerOption
-// 	grpcServer := grpc.NewServer(opts...)
-// 	mainv1.RegisterMainServiceServer(grpcServer, api.MainServer{})
-// 	grpcServer.Serve(lis)
-// }
-
 func main() {
+	mmQueue := matchmaking.Initalize()
+	mainServer := api.MainServer{
+		MatchmakingPool: &mmQueue,
+	}
+
 	go func() {
 		if err := runRESTServer(); err != nil {
 			log.Fatalf("Failed to run REST server: %v", err)
 		}
 	}()
 
-	if err := runGRPCServer(); err != nil {
-		log.Fatalf("Failed to run gRPC server: %v", err)
-	}
+	go func() {
+		if err := runGRPCServer(mainServer); err != nil {
+			log.Fatalf("Failed to run gRPC server: %v", err)
+		}
+	}()	
 }
 
-func runGRPCServer() error {
+func runGRPCServer(server api.MainServer) error {
 	const port = 8081
 	const maxSizeInBytes = 1024 * 1024 * 8
 	lis, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
@@ -51,7 +46,7 @@ func runGRPCServer() error {
 	var opts []grpc.ServerOption
 	opts = append(opts, grpc.MaxSendMsgSize(maxSizeInBytes), grpc.MaxRecvMsgSize(maxSizeInBytes))
 	grpcServer := grpc.NewServer(opts...)	
-	mainv1.RegisterMainServiceServer(grpcServer, api.MainServer{})
+	mainv1.RegisterMainServiceServer(grpcServer, server)
 
 	reflection.Register(grpcServer)
 
