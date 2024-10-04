@@ -2,3 +2,4 @@ bin/*
 archive
 .env
 .pgpass
+db/models/*

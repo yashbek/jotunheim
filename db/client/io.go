@@ -7,36 +7,44 @@ import (
 	"sync/atomic"
 	"time"
 
+	maindb "github.com/yashbek/jotunheim/db/models/main"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
-
+type DBClientCtxKey struct{}
 
 type DatabaseClient struct {
 	*sqlx.DB
 	isHealthy atomic.Bool
 }
 
-func LoadConfiguration(DatabaseConfiguration){
+func Init(ctx context.Context, dbConfig DatabaseConfiguration) context.Context {
+	client, ok := createDBConnection(dbConfig)
 
-}
-
-func pingClient(client *DatabaseClient) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second * 1)
-
-	defer cancel()
-
-	err := client.PingContext(ctx)
-
-	if err != nil {
-		log.Print(err.Error())
-		return false
+	if !ok {
+		log.Fatal("failed to start db")
 	}
 
-	return true
+	mainCtx := context.WithValue(ctx, DBClientCtxKey{}, client)
+
+	return mainCtx
 }
 
-func createDBConnection(dbConfig DatabaseConfiguration) {
+func GetDBClient(ctx context.Context) *DatabaseClient {
+	client, ok := ctx.Value(DBClientCtxKey{}).(*DatabaseClient)
+
+	if !ok {
+		log.Fatal("context lacks client value, DB might have failed to initialize")
+	}
+	return client
+}
+
+func (dc *DatabaseClient) Query() *maindb.Queries {
+	return maindb.New(dc.DB)
+}
+
+func createDBConnection(dbConfig DatabaseConfiguration) (*DatabaseClient, bool) {
 	const maxRetries = 5
 
 	host := dbConfig.Host
@@ -52,7 +60,9 @@ func createDBConnection(dbConfig DatabaseConfiguration) {
 			atomic.Bool{},
 		}
 		dbClient.isHealthy.Store(true)
+		return dbClient, true
 	}
+	return &DatabaseClient{}, false
 }
 
 func initializeConnection(host string, port string, username string, password string, database string, retries int) *sqlx.DB {
@@ -65,16 +75,14 @@ func initializeConnection(host string, port string, username string, password st
 	}
 	for sqlxClient == nil {
 		time.Sleep(time.Second)
-		log.Print("Could not initialize mysql connection",
+		log.Println("Could not initialize mysql connection",
 			err.Error(),
 		)
 		return nil
 	}
 	const defaultMaxOpenConns = 10
 	const defaultMaxIdleConns = 5
-	const readTime = time.Minute * 5
-	const writeTime = time.Minute * 1
-	defaultMaxConnAge := readTime
+	const defaultMaxConnAge = time.Minute * 3
 	sqlxClient.SetMaxOpenConns(defaultMaxOpenConns)
 	sqlxClient.SetMaxIdleConns(defaultMaxIdleConns)
 	sqlxClient.SetConnMaxLifetime(defaultMaxConnAge)
@@ -82,5 +90,6 @@ func initializeConnection(host string, port string, username string, password st
 }
 
 func getConnectionString(host string, port string, username string, password string, database string) string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", username, password, host, port, database)
+	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, username, password, database)
 }
+
