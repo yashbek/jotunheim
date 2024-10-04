@@ -8,7 +8,9 @@ import (
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/joho/godotenv"
 	"github.com/yashbek/jotunheim/api"
+	"github.com/yashbek/jotunheim/db/client"
 	"github.com/yashbek/jotunheim/services/matchmaking"
 	mainv1 "github.com/yashbek/y2j/api/main/v1"
 	"google.golang.org/grpc"
@@ -17,6 +19,13 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+	err := godotenv.Load(".env")
+	if err == nil {
+		log.Println("reading from the .env file")
+	}
+	dbConfig, ctx := db.LoadDBConfig(ctx)
+	ctx = db.Init(ctx, dbConfig)
 	mmQueue := matchmaking.Initalize()
 	mainServer := api.MainServer{
 		MatchmakingPool: &mmQueue,

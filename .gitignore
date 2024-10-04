@@ -1,3 +1,5 @@
-generated/
 bin/*
 archive
+.env
+.pgpass
+db/models/*
