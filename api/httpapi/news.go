@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -35,7 +36,7 @@ func HandleNews(w http.ResponseWriter, r *http.Request, _ map[string]string) {
 		return
 	}
 
-	apiKey := "00fd6278c7f1d2e0aa4560643e9ad80dc7762f5db682d7e422ff2d40ee425eec"
+	apiKey := os.Getenv("NEWS_KEY")
 
 	baseURL := "https://serpapi.com/search.json"
 	params := url.Values{}

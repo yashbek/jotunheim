@@ -3,6 +3,7 @@ package firebasedb
 import (
 	"context"
 	"crypto/tls"
+	"os"
 	"time"
 
 	firebase "firebase.google.com/go/v4"
@@ -28,8 +29,9 @@ var FirebaseClient *App
 const databaseURL = "https://lakeofnine-19bf4-default-rtdb.europe-west1.firebasedatabase.app"
 
 func NewFirebaseApp(ctx context.Context, tlsConfig *tls.Config) (*App, error) {
+	path := os.Getenv("FIREBASE_PATH")
 
-	credOpt := option.WithCredentialsFile("/Users/myazbek/Documents/landing/jotunheim/db/firebasedb/lakeofnine.json")
+	credOpt := option.WithCredentialsFile(path)
 
 	app, err := firebase.NewApp(ctx, nil,
 		credOpt,

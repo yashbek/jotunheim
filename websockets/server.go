@@ -230,7 +230,7 @@ func (s *Server) handleMoveMessage(_ *Connection, content interface{}) {
 	var moves services.MovesOrder
 	firebasedb.FirebaseClient.ReadGameMoves("games", gameID, &moves)
 
-	if toX != -1 && toY != -1 {
+	if toX != -1 && toY != -1 { // when moving a piece to -1, -1 we are removing it from the board
 		moves.Moves = append(moves.Moves, move)
 	}
 

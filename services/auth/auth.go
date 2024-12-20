@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -82,6 +83,7 @@ func (rl *RateLimiter) Middleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func GenerateJWT(email string) (string, error) {
+	jwtkey := os.Getenv("JWT_SECRET_KEY")
 	claims := Claims{
 		email,
 		jwt.RegisteredClaims{
@@ -92,13 +94,14 @@ func GenerateJWT(email string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte("your-secret-key"))
+	return token.SignedString([]byte(jwtkey))
 }
 
 func validateJWT(tokenStr string) (*Claims, error) {
+	jwtkey := os.Getenv("JWT_SECRET_KEY")
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
-		return []byte("your-secret-key"), nil
+		return []byte(jwtkey), nil
 	})
 
 	if err != nil || !token.Valid {
@@ -113,26 +116,6 @@ func GetEmailFromToken(tokenStr string) (string, error) {
 		return "", nil
 	}
 	return claims.Email, nil
-}
-
-func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "No auth token", http.StatusUnauthorized)
-			return
-		}
-
-		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-		claims, err := validateJWT(tokenStr)
-		if err != nil {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), "claims", claims)
-		next(w, r.WithContext(ctx))
-	}
 }
 
 func AuthInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -163,11 +146,4 @@ func WithAuth(ctx context.Context, r *http.Request) metadata.MD {
 		md["authorization"] = auth
 	}
 	return metadata.New(md)
-}
-
-func sanitizeEmail(email string) string {
-	return strings.ReplaceAll(
-		strings.ReplaceAll(email, ".", "_"),
-		"@", "_at_",
-	)
 }
