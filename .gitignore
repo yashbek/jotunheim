@@ -1,3 +1,10 @@
-generated/
 bin/*
 archive
+.env
+.pgpass
+db/models/*
+db/firebasedb/lakeofnine.json
+server.crt
+server.key
+.DS_Store
+*/.DS_Store
