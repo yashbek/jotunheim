@@ -1,4 +1,13 @@
 # Welcome to the vchess backend: Jotunheim
+Installation
 
-Let's see where this goes \
-Hehe :3 
+Clone the repository:
+```
+git clone https://github.com/yourusername/jotunheim.git
+cd jotunheim
+```
+Install dependencies:
+```
+go mod download
+```
+"Hehe :3" -jenny
